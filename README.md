@@ -1,4 +1,4 @@
-# python prism
+# python prismic
 
 ![alt text](image.png)
  
