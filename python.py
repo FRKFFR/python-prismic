@@ -216,6 +216,28 @@ def filter_avatars(page):
     current_page = page
     threaded_display_avatars(current_page)
 
+# Define the function to handle selecting the avatar
+def select_avatar(avatar_id):
+    url = f"https://api.vrchat.cloud/api/1/avatars/{avatar_id}/select"
+    headers = {
+        "Cookie": f"auth={auth_cookie}",
+        "User-Agent": "VRChatAPI/1.0"
+    }
+    try:
+        # Send the PUT request to select the avatar
+        response = requests.put(url, headers=headers)
+        
+        if response.status_code == 200:
+            logging.info(f"Avatar {avatar_id} selected successfully.")
+            messagebox.showinfo("Success", f"Avatar {avatar_id} selected successfully!")
+        else:
+            logging.error(f"Failed to select avatar {avatar_id}: {response.status_code}")
+            messagebox.showerror("Error", f"Failed to select avatar {avatar_id}. Status: {response.status_code}")
+    except Exception as e:
+        logging.error(f"Error selecting avatar {avatar_id}: {e}")
+        messagebox.showerror("Error", f"Error selecting avatar {avatar_id}: {str(e)}")
+
+# Update the "display_avatars" function to include the Select button
 def display_avatars(page):
     logging.debug(f"Displaying avatars for page {page + 1}")
     clear_frame()
@@ -230,16 +252,9 @@ def display_avatars(page):
     futures = []
     total_avatars = len(avatars_to_display)
 
-    # Update first progress bar for avatar data fetching
-    progress_var_avatars.set(0)
-    progress_bar_avatars.update()
-
-    # Create thread pool for fetching avatar details and images concurrently
     with ThreadPoolExecutor(max_workers=10) as executor:
-        # Fetch avatar details concurrently
         details_futures = {executor.submit(fetch_avatar_details, avatar['avatar_id']): avatar for avatar in avatars_to_display}
         
-        # Fetch images after details
         for future in as_completed(details_futures):
             avatar = details_futures[future]
             details = future.result()
@@ -252,7 +267,6 @@ def display_avatars(page):
 
                 # Fetch the image in parallel
                 img_future = executor.submit(fetch_avatar_image, image_url, avatar['platforms'])
-
                 img = img_future.result()  # Get the image when ready
 
                 # Create a new avatar container widget and show image immediately
@@ -280,6 +294,10 @@ def display_avatars(page):
                 select_button = tk.Button(buttons_frame, text="Open Web", command=lambda id=avatar['avatar_id']: open_avatar_page(id))
                 select_button.pack(side="right", padx=5)
 
+                # Add the Select button
+                select_button = tk.Button(buttons_frame, text="Select", command=lambda id=avatar['avatar_id']: select_avatar(id))
+                select_button.pack(side="right", padx=5)
+
                 avatar_widgets.append(container)
 
                 col += 1
@@ -287,17 +305,17 @@ def display_avatars(page):
                     col = 0
                     row += 1
 
-                # Update first progress bar for avatar data fetching
+                # Update progress bars
                 progress_var_avatars.set(((len(futures) + 1) / total_avatars) * 100)
                 progress_bar_avatars.update()
 
-                # Update second progress bar for image downloading
                 progress_var_images.set(((len(futures) + 1) / total_avatars) * 100)
                 progress_bar_images.update()
 
                 # Force Tkinter to refresh the UI
                 root.after(10)
 
+    # Hide loading bars when done
     loading_label.place_forget()
     progress_bar_avatars.place_forget()
     progress_bar_images.place_forget()
