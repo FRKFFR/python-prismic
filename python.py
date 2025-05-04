@@ -16,10 +16,14 @@ logging.basicConfig(
 )
 
 # Config
-auth_cookie = "authcookie_34ff8387-2653-41bf-af10-e45902c78e1c" # Replace with your authcookie, how to find your authcookie install https://chromewebstore.google.com/detail/editthiscookie-v3/ojfebgpkimhlhcblbalbfjblapadhbol/reviews
-user_id = "usr_259c89d1-b260-48b4-bc16-9a0fa65df44f"  # Replace with your user ID how to find you user id, in README
+auth_cookie = "authcookie_XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" # Replace with your authcookie, how to find your authcookie install https://chromewebstore.google.com/detail/editthiscookie-v3/ojfebgpkimhlhcblbalbfjblapadhbol/reviews
+user_id = "usr_XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"  # Replace with your user ID how to find you user id, in README
+
+# Columns and row
 COLUMNS = 10
 ROWS = 10
+
+# Multilpication for the number of avartar to load 
 AVATARS_PER_PAGE = COLUMNS * ROWS
 
 # Load avatars
