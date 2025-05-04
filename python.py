@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 
 # Config
-auth_cookie = "authcookie_XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" # Replace with your authcookie, how to find your authcookie install https://chromewebstore.google.com/detail/editthiscookie-v3/ojfebgpkimhlhcblbalbfjblapadhbol/reviews
+auth_cookie = "authcookie_XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" # Replace with your authcookie, how to find your authcookie, in README
 user_id = "usr_XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"  # Replace with your user ID how to find you user id, in README
 
 # Columns and row
