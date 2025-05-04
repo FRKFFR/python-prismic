@@ -16,7 +16,8 @@ logging.basicConfig(
 )
 
 # Config
-auth_cookie = "authcookie_34ff8387-2653-41bf-af10-e45902c78e1c"
+auth_cookie = "authcookie_34ff8387-2653-41bf-af10-e45902c78e1c" # Replace with your authcookie, how to find your authcookie install https://chromewebstore.google.com/detail/editthiscookie-v3/ojfebgpkimhlhcblbalbfjblapadhbol/reviews
+user_id = "usr_259c89d1-b260-48b4-bc16-9a0fa65df44f"  # Replace with your user ID how to find you user id, in README
 COLUMNS = 10
 ROWS = 10
 AVATARS_PER_PAGE = COLUMNS * ROWS
@@ -34,7 +35,7 @@ banned_avatars_count = 0  # Counter for banned/deleted avatars
 
 # Tkinter setup
 root = tk.Tk()
-root.title("VRChat Avatar Browser Prismic database")
+root.title("VRChat Avatar Browser Prismic database By FR_KF_FR")
 root.geometry("1800x1000")
 
 # Frame for loading at the bottom left
@@ -143,7 +144,6 @@ def clear_frame():
     avatar_widgets = []
 
 def fetch_current_avatar(auth_cookie):
-    user_id = "usr_259c89d1-b260-48b4-bc16-9a0fa65df44f"  # Replace with your user ID
     try:
         logging.debug(f"Fetching currently equipped avatar for user {user_id}")
         r = requests.get(
