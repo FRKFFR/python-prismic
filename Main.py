@@ -27,7 +27,7 @@ ROWS = 10
 AVATARS_PER_PAGE = COLUMNS * ROWS
 
 # Load avatars
-with open('all_decoded_avatars_full.json', 'r', encoding='utf-8') as f:
+with open('Avatar Data.json', 'r', encoding='utf-8') as f:
     avatars_data = json.load(f)
     logging.info(f"Loaded {len(avatars_data)} avatars.")
 
