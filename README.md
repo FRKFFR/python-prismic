@@ -1,14 +1,23 @@
 # python prismic
 
 -search avatar Name/description
+
 -search avatar Author
+
 -Select avatar (Equip avatar)
+
 -open avartar link in web
+
 -Filter Platform PC/QUEST/IOS
+
 -Pages
+
 -Banned avatar count when searching (or deleted)
+
 -loading bar (broken because of the threading)
+
 -show curantly equiped avatar image and name
+
 
 ![alt text](image.png)
  
