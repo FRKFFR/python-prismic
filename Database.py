@@ -92,10 +92,10 @@ def main():
         print(f"{avatar['avatar_id']} | Platforms: {avatar['platforms']} | {avatar['name']} | {avatar['author']}")
 
     # Save to JSON
-    with open("all_decoded_avatars_full.json", "w", encoding="utf-8") as f:
+    with open("Avatar Data.json", "w", encoding="utf-8") as f:
         json.dump(final_list, f, ensure_ascii=False, indent=4)
 
-    print("\nSaved to all_decoded_avatars_full.json")
+    print("\nSaved to Avatar Data.json")
 
 if __name__ == "__main__":
     main()
