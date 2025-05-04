@@ -34,8 +34,8 @@ banned_avatars_count = 0  # Counter for banned/deleted avatars
 
 # Tkinter setup
 root = tk.Tk()
-root.title("VRChat Avatar Browser")
-root.geometry("1700x950")
+root.title("VRChat Avatar Browser Prismic database")
+root.geometry("1800x1000")
 
 # Frame for loading at the bottom left
 loading_frame = tk.Frame(root, width=200, height=50)
@@ -57,6 +57,18 @@ banned_count_label.pack(side="left", padx=10)
 filter_frame = tk.Frame(root)
 filter_frame.pack(pady=10)
 
+# --- [ADDED] ---
+# Frame for Current Avatar Info (inside filter frame)
+current_avatar_frame = tk.Frame(filter_frame)
+current_avatar_frame.grid(row=0, column=0, rowspan=2, padx=10, pady=5, sticky="w")
+
+current_avatar_img_label = tk.Label(current_avatar_frame)
+current_avatar_img_label.pack(side="top", pady=5)
+
+current_avatar_name_label = tk.Label(current_avatar_frame, text="Current Avatar", font=("Arial", 12, "bold"), wraplength=100)
+current_avatar_name_label.pack(side="top")
+# --- [END ADD] ---
+
 # Name/Description Search
 search_var = tk.StringVar()
 search_entry = tk.Entry(filter_frame, textvariable=search_var, font=("Arial", 14), width=50)
@@ -71,12 +83,11 @@ author_label = tk.Label(filter_frame, text="Search Author:", font=("Arial", 12))
 platforms_var = {"PC": tk.BooleanVar(), "Quest": tk.BooleanVar(), "iOS": tk.BooleanVar()}
 platforms_frame = tk.LabelFrame(filter_frame, text="Filter by Platforms", font=("Arial", 12), padx=10, pady=10)
 
-# Platform checkboxes
 pc_checkbox = tk.Checkbutton(platforms_frame, text="PC", variable=platforms_var["PC"])
 quest_checkbox = tk.Checkbutton(platforms_frame, text="Quest", variable=platforms_var["Quest"])
 ios_checkbox = tk.Checkbutton(platforms_frame, text="iOS", variable=platforms_var["iOS"])
 
-# Page navigation buttons (Next/Previous)
+# Page navigation buttons
 page_nav_frame = tk.Frame(filter_frame)
 prev_button = tk.Button(page_nav_frame, text="Previous", command=lambda: change_page(-1))
 prev_button.grid(row=0, column=0, padx=5)
@@ -87,22 +98,20 @@ page_label.grid(row=0, column=1, padx=5)
 next_button = tk.Button(page_nav_frame, text="Next", command=lambda: change_page(1))
 next_button.grid(row=0, column=2, padx=5)
 
-# Position widgets in grid
-search_label.grid(row=0, column=0, padx=5, pady=5)
-search_entry.grid(row=1, column=0, padx=5, pady=5)
-author_label.grid(row=0, column=1, padx=5, pady=5)
-author_entry.grid(row=1, column=1, padx=5, pady=5)
-
-platforms_frame.grid(row=0, column=2, rowspan=2, padx=5, pady=5)
+# --- [SHIFT EVERYTHING RIGHT BY 1 COLUMN] ---
+search_label.grid(row=0, column=1, padx=5, pady=5)
+search_entry.grid(row=1, column=1, padx=5, pady=5)
+author_label.grid(row=0, column=2, padx=5, pady=5)
+author_entry.grid(row=1, column=2, padx=5, pady=5)
+platforms_frame.grid(row=0, column=3, rowspan=2, padx=5, pady=5)
 pc_checkbox.grid(row=0, column=0, padx=10, pady=5)
 quest_checkbox.grid(row=0, column=1, padx=10, pady=5)
 ios_checkbox.grid(row=0, column=2, padx=10, pady=5)
-
-page_nav_frame.grid(row=0, column=3, rowspan=2, padx=5, pady=5)
+page_nav_frame.grid(row=0, column=4, rowspan=2, padx=5, pady=5)
 
 # Search Button
 search_button = tk.Button(filter_frame, text="Search", command=lambda: filter_avatars(0))
-search_button.grid(row=2, column=0, columnspan=4, pady=10)
+search_button.grid(row=2, column=0, columnspan=5, pady=10)
 
 # Scrollable frame
 canvas = tk.Canvas(root)
@@ -119,7 +128,7 @@ canvas.configure(yscrollcommand=scrollbar.set)
 canvas.pack(side="left", fill="both", expand=True)
 scrollbar.pack(side="right", fill="y")
 
-# Enable mouse scrolling with smoother speed
+# Enable mouse scrolling
 def on_mouse_wheel(event):
     canvas.yview_scroll(int(-1*(event.delta/120)), "units")
     canvas.update_idletasks()
@@ -132,6 +141,64 @@ def clear_frame():
     for widget in avatar_widgets:
         widget.destroy()
     avatar_widgets = []
+
+def fetch_current_avatar(auth_cookie):
+    user_id = "usr_259c89d1-b260-48b4-bc16-9a0fa65df44f"  # Replace with your user ID
+    try:
+        logging.debug(f"Fetching currently equipped avatar for user {user_id}")
+        r = requests.get(
+            f"https://api.vrchat.cloud/api/1/users/{user_id}/avatar",
+            headers={"Cookie": f"auth={auth_cookie}", "User-Agent": "VRChatAPI/1.0"}
+        )
+        if r.status_code == 200:
+            return r.json()
+        else:
+            logging.error(f"Failed to fetch current avatar: Status {r.status_code}")
+            return None
+    except Exception as e:
+        logging.error(f"Error fetching current avatar: {e}")
+        return None
+
+def load_current_avatar():
+    try:
+        headers = {
+            "Cookie": f"auth={auth_cookie}",
+            "User-Agent": "VRChat/2024.1.2"  # Fake being VRChat client
+        }
+        # Get the current user data
+        user_response = requests.get("https://api.vrchat.cloud/api/1/auth/user", headers=headers)
+        user_response.raise_for_status()
+        user_data = user_response.json()
+        
+        current_avatar_id = user_data.get('currentAvatar')
+        if not current_avatar_id:
+            logging.warning("No current avatar found in user data.")
+            return
+
+        # Get the avatar details
+        avatar_response = requests.get(f"https://api.vrchat.cloud/api/1/avatars/{current_avatar_id}", headers=headers)
+        avatar_response.raise_for_status()
+        avatar_data = avatar_response.json()
+
+        # Load the avatar image
+        image_url = avatar_data.get('imageUrl') or avatar_data.get('thumbnailImageUrl')
+        if not image_url:
+            logging.warning("No image URL for current avatar.")
+            return
+
+        img_response = requests.get(image_url, headers=headers)
+        img_data = img_response.content
+        img = Image.open(io.BytesIO(img_data)).convert("RGBA")
+        img = img.resize((100, 100), Image.LANCZOS)
+        img = ImageTk.PhotoImage(img)
+
+        # Update the UI
+        current_avatar_img_label.config(image=img)
+        current_avatar_img_label.image = img
+        current_avatar_name_label.config(text=avatar_data['name'])
+
+    except Exception as e:
+        logging.error(f"Failed to load current avatar: {e}")
 
 def fetch_avatar_details(avatar_id):
     global banned_avatars_count
@@ -230,9 +297,14 @@ def select_avatar(avatar_id):
         if response.status_code == 200:
             logging.info(f"Avatar {avatar_id} selected successfully.")
             messagebox.showinfo("Success", f"Avatar {avatar_id} selected successfully!")
+            
+            # 🟰 Refresh the current avatar display
+            load_current_avatar()
+
         else:
             logging.error(f"Failed to select avatar {avatar_id}: {response.status_code}")
             messagebox.showerror("Error", f"Failed to select avatar {avatar_id}. Status: {response.status_code}")
+
     except Exception as e:
         logging.error(f"Error selecting avatar {avatar_id}: {e}")
         messagebox.showerror("Error", f"Error selecting avatar {avatar_id}: {str(e)}")
@@ -337,4 +409,5 @@ def change_page(direction):
         current_page = new_page
         threaded_display_avatars(current_page)
 
+load_current_avatar()
 root.mainloop()
