@@ -124,8 +124,14 @@ class DatabaseUI:
             self.update_result("avatars", str(len(main_data)))
             self.update_result("authors", str(len(set(avatar['author'] for avatar in main_data))))
             self.update_result("last_update", datetime.now().strftime('%Y-%m-%d'))
+            
+            # Close the window after 2 seconds
+            self.root.after(2000, self.root.destroy)
+            
         except Exception as e:
             self.update_status(f"Error: {str(e)}")
+            # Close the window after 5 seconds if there's an error
+            self.root.after(5000, self.root.destroy)
 
 class Reader:
     def __init__(self, data: bytes):
@@ -180,13 +186,13 @@ class AvatarDatabase:
         self.cache_dir.mkdir(exist_ok=True)
 
     def decode_avatar_id(self, crypt: bytes, iv: bytes) -> str:
-        crypt = list(crypt)
-        for i in range(len(crypt) - 1, -1, -1):
-            k = crypt[i] ^ crypt[(i + len(crypt) - 1) % len(crypt)] ^ iv[i]
-            crypt[i] = k
-
+        # Process each byte with XOR operations
+        decoded = []
+        for i in range(16):
+            decoded.append(crypt[i] ^ iv[i])
+        
         # Convert to hex and reverse each byte
-        hex_bytes = [f"{x:02x}" for x in crypt]
+        hex_bytes = [f"{x:02x}" for x in decoded]
         
         # Format as standard UUID
         uuid = f"{hex_bytes[0]}{hex_bytes[1]}{hex_bytes[2]}{hex_bytes[3]}-" \
