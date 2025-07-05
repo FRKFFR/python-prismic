@@ -186,20 +186,21 @@ class AvatarDatabase:
         self.cache_dir.mkdir(exist_ok=True)
 
     def decode_avatar_id(self, crypt: bytes, iv: bytes) -> str:
-        # Process each byte with XOR operations
-        decoded = []
-        for i in range(16):
-            decoded.append(crypt[i] ^ iv[i])
-        
-        # Convert to hex and reverse each byte
+        # XOR decryption of 16 bytes
+        decoded = [crypt[i] ^ iv[i] for i in range(16)]
+
+        # Convert to hex
         hex_bytes = [f"{x:02x}" for x in decoded]
-        
-        # Format as standard UUID
-        uuid = f"{hex_bytes[0]}{hex_bytes[1]}{hex_bytes[2]}{hex_bytes[3]}-" \
-               f"{hex_bytes[4]}{hex_bytes[5]}{hex_bytes[6]}{hex_bytes[7]}-" \
-               f"{hex_bytes[8]}{hex_bytes[9]}{hex_bytes[10]}{hex_bytes[11]}-" \
-               f"{hex_bytes[12]}{hex_bytes[13]}{hex_bytes[14]}{hex_bytes[15]}"
-        
+
+        # Format as proper UUID (8-4-4-4-12)
+        uuid = (
+            f"{''.join(hex_bytes[0:4])}-"
+            f"{''.join(hex_bytes[4:6])}-"
+            f"{''.join(hex_bytes[6:8])}-"
+            f"{''.join(hex_bytes[8:10])}-"
+            f"{''.join(hex_bytes[10:16])}"
+        )
+
         return f"avtr_{uuid}"
 
     def get_prismic_obj(self, url: str, platform: str) -> List[Dict]:
