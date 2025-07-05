@@ -10,4 +10,7 @@ python login.py
 
 wait
 
+python avatar_browser.py
+
+wait
 pause
