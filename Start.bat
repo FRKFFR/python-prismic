@@ -2,11 +2,11 @@ pip install -r requirements.txt
 
 wait
 
-python Database.py
+python database_ui.py
 
 wait
 
-python Main.py
+python login.py
 
 wait
 

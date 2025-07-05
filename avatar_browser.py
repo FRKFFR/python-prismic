@@ -8,7 +8,6 @@ import json
 import threading
 import webbrowser
 import logging
-import base64
 import os
 
 # Setup logging
@@ -17,201 +16,33 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+# Load config
+def load_config():
+    config_path = os.path.join(os.path.dirname(__file__), "config.json")
+    if not os.path.exists(config_path):
+        messagebox.showerror("Error", "Please run login.py first to authenticate")
+        exit(1)
+    
+    with open(config_path, 'r') as f:
+        return json.load(f)
+
 # Config
+config = load_config()
+auth_cookie = config["auth_cookie"]
+user_id = config["user_id"]
+
+# API Base URL
+API_BASE = "https://api.vrchat.cloud/api/1"
+
+# Columns and row
 COLUMNS = 10
 ROWS = 10
+
+# Multiplication for the number of avatars to load
 AVATARS_PER_PAGE = COLUMNS * ROWS
 
-# --- Session State ---
-session = {
-    "auth_cookie": None,
-    "user_id": None
-}
-SESSION_FILE = "vrchat_session.json"
-
-# Save session data to a file
-def save_session(email, password, remember):
-    if remember:
-        with open(SESSION_FILE, 'w') as f:
-            json.dump({"email": email, "password": password}, f)
-    elif os.path.exists(SESSION_FILE):
-        os.remove(SESSION_FILE)
-
-# Load saved session
-def load_saved_session():
-    if os.path.exists(SESSION_FILE):
-        with open(SESSION_FILE, 'r') as f:
-            data = json.load(f)
-            return data.get("email"), data.get("password")
-    return None, None
-
-# --- 2FA Verification ---
-def verify_2fa_code(code, auth_cookie):
-    try:
-        cookies = {'auth': auth_cookie}
-        headers = {
-            "Content-Type": "application/json",
-            "User-Agent": "VRChatAPI/1.0"
-        }
-        payload = {"code": code}
-
-        response = requests.post(
-            "https://api.vrchat.cloud/api/1/auth/twofactorauth/totp/verify",
-            headers=headers,
-            cookies=cookies,
-            json=payload
-        )
-
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("verified") is True:
-                logging.info("2FA code verified successfully.")
-
-                # Optionally: store twoFactorAuth cookie for future requests
-                two_factor_cookie = response.cookies.get('twoFactorAuth')
-                if two_factor_cookie:
-                    logging.info(f"Received twoFactorAuth cookie: {two_factor_cookie[:10]}...")
-
-                # Confirm user is fully authenticated now
-                verify = requests.get(
-                    "https://api.vrchat.cloud/api/1/auth/user",
-                    headers={"User-Agent": "VRChatAPI/1.0"},
-                    cookies={**cookies, 'twoFactorAuth': two_factor_cookie} if two_factor_cookie else cookies
-                )
-
-                if verify.status_code == 200:
-                    session["user_id"] = verify.json().get("id")
-                    return True
-            else:
-                logging.warning("2FA code not verified.")
-        else:
-            logging.error(f"2FA verification failed: {response.status_code}, {response.text}")
-
-        return False
-    except Exception as e:
-        logging.error(f"Error verifying 2FA code: {e}")
-        return False
-
-# --- Login Function ---
-def login_vrchat(email, password, twofa_code=None):
-    logging.info("Attempting to log in to VRChat")
-    session_req = requests.Session()
-    session_req.headers.update({"User-Agent": "VRChatAPI/1.0"})
-    credentials = base64.b64encode(f"{email}:{password}".encode()).decode()
-    session_req.headers["Authorization"] = f"Basic {credentials}"
-
-    # Step 1: Initial login
-    response = session_req.get("https://api.vrchat.cloud/api/1/auth/user")
-    logging.debug(f"Login response: {response.status_code}, {response.text}")
-
-    if response.status_code == 200 and not twofa_code:
-        # Login succeeded, no 2FA required
-        auth_cookie = session_req.cookies.get("auth")
-        user_id = response.json().get("id")
-        logging.info(f"Login successful. User ID: {user_id}")
-        return auth_cookie, user_id, False
-
-    elif response.status_code == 401 and not twofa_code:
-        # 2FA is required
-        auth_cookie = session_req.cookies.get("auth")
-        logging.info("2FA required, waiting for code.")
-        return auth_cookie, None, True
-
-    elif twofa_code:
-        # Step 2: Verify 2FA code
-        auth_cookie = session_req.cookies.get("auth")
-        response_2fa = session_req.post(
-            "https://api.vrchat.cloud/api/1/auth/twofactorauth/totp/verify",
-            headers={"Content-Type": "application/json"},
-            json={"code": twofa_code},
-            cookies={"auth": auth_cookie}
-        )
-        logging.debug(f"2FA response: {response_2fa.status_code}, {response_2fa.text}")
-
-        if response_2fa.status_code == 200 and response_2fa.json().get("verified"):
-            # Confirm login is complete by fetching user data
-            confirm = session_req.get(
-                "https://api.vrchat.cloud/api/1/auth/user",
-                cookies={"auth": auth_cookie}
-            )
-            if confirm.status_code == 200:
-                user_id = confirm.json().get("id")
-                logging.info(f"2FA verified. User ID: {user_id}")
-                return auth_cookie, user_id, False
-
-        logging.error("2FA verification failed.")
-        return None, None, False
-
-    else:
-        logging.error(f"Login failed: {response.status_code}")
-        return None, None, False
-
-# --- Login Window ---
-def show_login_window():
-    login_root = tk.Tk()
-    login_root.title("VRChat Login")
-    login_root.geometry("400x300")
-
-    tk.Label(login_root, text="Email:").pack(pady=5)
-    email_entry = tk.Entry(login_root)
-    email_entry.pack(pady=5)
-
-    tk.Label(login_root, text="Password:").pack(pady=5)
-    password_entry = tk.Entry(login_root, show="*")
-    password_entry.pack(pady=5)
-
-    tk.Label(login_root, text="2FA Code (if needed):").pack(pady=5)
-    twofa_entry = tk.Entry(login_root)
-    twofa_entry.pack(pady=5)
-
-    remember_var = tk.BooleanVar()
-    remember_check = tk.Checkbutton(login_root, text="Remember Me", variable=remember_var)
-    remember_check.pack(pady=5)
-
-    def attempt_login():
-        email = email_entry.get()
-        password = password_entry.get()
-        twofa = twofa_entry.get()
-        auth, user, needs_2fa = login_vrchat(email, password, twofa)
-        if auth and user:
-            session["auth_cookie"] = auth
-            session["user_id"] = user
-            save_session(email, password, remember_var.get())
-            login_root.destroy()
-            start_main_app()
-
-        elif auth and needs_2fa:
-            session["auth_cookie"] = auth
-            messagebox.showinfo("2FA Required", "Enter the 2FA code from your email or app and click Login again.")
-
-        else:
-            messagebox.showerror("Login Failed", "Invalid credentials or 2FA code.")
-
-    login_button = tk.Button(login_root, text="Login", command=attempt_login)
-    login_button.pack(pady=10)
-
-    email_saved, pass_saved = load_saved_session()
-    if email_saved and pass_saved:
-        email_entry.insert(0, email_saved)
-        password_entry.insert(0, pass_saved)
-        remember_check.select()
-
-    login_root.mainloop()
-
-
-# --- Application Launcher ---
-def start_main_app():
-    global auth_cookie, user_id
-    auth_cookie = session["auth_cookie"]
-    user_id = session["user_id"]
-    # The rest of your application setup and GUI goes here.
-    # You would move your original GUI logic (Tk, filters, canvas, avatar grid, etc.) into this function.
-    # Then call show_login_window() as your entry point.
-
-show_login_window()
-# --- Main Application Logic ---
 # Load avatars
-with open('Avatar Data.json', 'r', encoding='utf-8') as f:
+with open('Avatar Data.json', 'r', encoding='utf-8') as f: 
     avatars_data = json.load(f)
     logging.info(f"Loaded {len(avatars_data)} avatars.")
 
@@ -331,32 +162,15 @@ def clear_frame():
         widget.destroy()
     avatar_widgets = []
 
-# Fetch current avatar
-def fetch_current_avatar(auth_cookie):
-    try:
-        logging.debug(f"Fetching currently equipped avatar for user {user_id}")
-        r = requests.get(
-            f"https://api.vrchat.cloud/api/1/users/{user_id}/avatar",
-            headers={"Cookie": f"auth={auth_cookie}", "User-Agent": "VRChatAPI/1.0"}
-        )
-        if r.status_code == 200:
-            return r.json()
-        else:
-            logging.error(f"Failed to fetch current avatar: Status {r.status_code}")
-            return None
-    except Exception as e:
-        logging.error(f"Error fetching current avatar: {e}")
-        return None
-
-# Load current avatar
-def load_current_avatar():
+def fetch_current_avatar():
     try:
         headers = {
             "Cookie": f"auth={auth_cookie}",
-            "User-Agent": "VRChat/2024.1.2"  # Fake being VRChat client
+            "User-Agent": "VRChat/2024.1.2"
         }
+        
         # Get the current user data
-        user_response = requests.get("https://api.vrchat.cloud/api/1/auth/user", headers=headers)
+        user_response = requests.get(f"{API_BASE}/auth/user", headers=headers)
         user_response.raise_for_status()
         user_data = user_response.json()
         
@@ -366,7 +180,7 @@ def load_current_avatar():
             return
 
         # Get the avatar details
-        avatar_response = requests.get(f"https://api.vrchat.cloud/api/1/avatars/{current_avatar_id}", headers=headers)
+        avatar_response = requests.get(f"{API_BASE}/avatars/{current_avatar_id}", headers=headers)
         avatar_response.raise_for_status()
         avatar_data = avatar_response.json()
 
@@ -380,43 +194,122 @@ def load_current_avatar():
         img_data = img_response.content
         img = Image.open(io.BytesIO(img_data)).convert("RGBA")
         img = img.resize((100, 100), Image.LANCZOS)
-        img = ImageTk.PhotoImage(img)
+        tk_img = ImageTk.PhotoImage(img)
 
         # Update the UI
-        current_avatar_img_label.config(image=img)
-        current_avatar_img_label.image = img
+        current_avatar_img_label.config(image=tk_img)
+        current_avatar_img_label.image = tk_img
         current_avatar_name_label.config(text=avatar_data['name'])
 
+    except requests.exceptions.RequestException as e:
+        messagebox.showerror("Error", f"Failed to fetch current avatar: {str(e)}")
+        return None
+    except ValueError as e:
+        messagebox.showerror("Error", f"Failed to parse user data: {str(e)}")
+        return None
     except Exception as e:
         logging.error(f"Failed to load current avatar: {e}")
+        # Show error image
+        error_img = Image.new('RGBA', (100, 100), (255, 0, 0, 255))
+        draw = ImageDraw.Draw(error_img)
+        font = ImageFont.load_default()
+        draw.text((10, 40), "Error", font=font, fill=(0, 0, 0, 255))
+        tk_error_img = ImageTk.PhotoImage(error_img)
+        current_avatar_img_label.config(image=tk_error_img)
+        current_avatar_img_label.image = tk_error_img
 
-# Fetch avatar details
 def fetch_avatar_details(avatar_id):
+    """Fetch avatar details from VRChat API."""
     global banned_avatars_count
     try:
         logging.debug(f"Fetching details for avatar {avatar_id}")
-        r = requests.get(f"https://api.vrchat.cloud/api/1/avatars/{avatar_id}",
-                         headers={"Cookie": f"auth={auth_cookie}", "User-Agent": "VRChatAPI/1.0"})
+        headers = {"Cookie": f"auth={auth_cookie}", "User-Agent": "VRChatAPI/1.0"}
+        r = requests.get(f"{API_BASE}/avatars/{avatar_id}", headers=headers)
+        
         if r.status_code == 200:
             return r.json()
         elif r.status_code == 404:  # Banned or deleted avatar
             banned_avatars_count += 1
-            banned_count_label.config(text=f"Banned Avatars: {banned_avatars_count}")
+            if root and banned_count_label:
+                root.after(0, lambda: banned_count_label.config(text=f"Banned Avatars: {banned_avatars_count}"))
             return None
         else:
             logging.error(f"Failed to fetch avatar {avatar_id}: Status {r.status_code}")
+            return None
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Network error fetching avatar {avatar_id}: {e}")
+        return None
+    except json.JSONDecodeError as e:
+        logging.error(f"Error parsing avatar data for {avatar_id}: {e}")
+        return None
     except Exception as e:
-        logging.error(f"Error fetching {avatar_id}: {e}")
-    return None
+        logging.error(f"Unexpected error fetching avatar {avatar_id}: {e}")
+        return None
 
-# Fetch avatar image
 def fetch_avatar_image(image_url, platforms):
+    """Fetch and process avatar image with platform labels."""
     try:
         logging.debug(f"Fetching image {image_url}")
-        img_response = requests.get(image_url, headers={"Cookie": f"auth={auth_cookie}", "User-Agent": "VRChatAPI/1.0"})
-        img_data = img_response.content
-        img = Image.open(io.BytesIO(img_data)).convert("RGBA")
-        img = img.resize((120, 120))
+        headers = {"Cookie": f"auth={auth_cookie}", "User-Agent": "VRChatAPI/1.0"}
+        
+        # Add timeout and retry logic
+        for attempt in range(3):
+            try:
+                img_response = requests.get(image_url, headers=headers, timeout=10)
+                if img_response.status_code == 200:
+                    img_data = img_response.content
+                    break
+            except requests.exceptions.RequestException as e:
+                if attempt == 2:  # Last attempt
+                    logging.error(f"Failed to fetch image after 3 attempts: {e}")
+                    return None
+                continue
+        
+        if not img_data:
+            logging.error("No image data received")
+            return None
+            
+        try:
+            # Create default error image if processing fails
+            error_img = Image.new('RGBA', (120, 120), (255, 0, 0, 255))
+            draw = ImageDraw.Draw(error_img)
+            font = ImageFont.load_default()
+            draw.text((10, 40), "Error", font=font, fill=(0, 0, 0, 255))
+            error_photo = ImageTk.PhotoImage(error_img)
+            
+            # Try to process the real image
+            try:
+                img = Image.open(io.BytesIO(img_data)).convert("RGBA")
+                img = img.resize((120, 120), Image.LANCZOS)  # Use LANCZOS for better quality
+                
+                # Draw platform text
+                draw = ImageDraw.Draw(img)
+                platform_colors = {
+                    "PC": "blue",
+                    "Quest": "green",
+                    "iOS": "purple"
+                }
+                y = 2
+                for platform in platforms:
+                    text = platform
+                    color = platform_colors.get(platform, "white")
+                    bbox = draw.textbbox((0, 0), text, font=font)
+                    w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                    draw.rectangle([120-w-8, y, 120-2, y+h+2], fill="black")
+                    draw.text((120-w-5, y), text, font=font, fill=color)
+                    y += h + 4
+
+                return ImageTk.PhotoImage(img)
+            except Exception as e:
+                logging.error(f"Error processing image: {e}")
+                return error_photo
+                
+        except Exception as e:
+            logging.error(f"Unexpected error processing image: {e}")
+            return error_photo
+    except Exception as e:
+        logging.error(f"Error fetching image: {e}")
+        return None
 
         # Draw platform text
         draw = ImageDraw.Draw(img)
@@ -442,17 +335,14 @@ def fetch_avatar_image(image_url, platforms):
         img = Image.new('RGBA', (120, 120), color='gray')
         return ImageTk.PhotoImage(img)
 
-# Show avatar info
 def show_info(avatar):
     info = f"Name: {avatar['name']}\nAuthor: {avatar['author']}\nDescription: {avatar['description']}"
     messagebox.showinfo("Avatar Info", info)
 
-# Open avatar page in web browser
 def open_avatar_page(avatar_id):
     url = f"https://vrchat.com/home/avatar/{avatar_id}"
     webbrowser.open(url)
 
-# Filter avatars based on search and platform
 def filter_avatars(page):
     global filtered_avatars, current_page
     name_desc_query = search_var.get().lower()
@@ -480,7 +370,7 @@ def filter_avatars(page):
 
 # Define the function to handle selecting the avatar
 def select_avatar(avatar_id):
-    url = f"https://api.vrchat.cloud/api/1/avatars/{avatar_id}/select"
+    url = f"{API_BASE}/avatars/{avatar_id}/select"
     headers = {
         "Cookie": f"auth={auth_cookie}",
         "User-Agent": "VRChatAPI/1.0"
@@ -493,8 +383,8 @@ def select_avatar(avatar_id):
             logging.info(f"Avatar {avatar_id} selected successfully.")
             messagebox.showinfo("Success", f"Avatar {avatar_id} selected successfully!")
             
-            # 🟰 Refresh the current avatar display
-            load_current_avatar()
+            # Refresh the current avatar display
+            fetch_current_avatar()
 
         else:
             logging.error(f"Failed to select avatar {avatar_id}: {response.status_code}")
@@ -589,7 +479,6 @@ def display_avatars(page):
 
     page_label.config(text=f"Page {current_page + 1} / {max(1, (len(filtered_avatars) + AVATARS_PER_PAGE - 1) // AVATARS_PER_PAGE)}")
 
-# Threaded display function
 def threaded_display_avatars(page):
     loading_label.pack(side="left", padx=10, pady=5)
     progress_bar_avatars.pack(side="left", padx=10, pady=5)
@@ -598,7 +487,6 @@ def threaded_display_avatars(page):
     # Start thread for displaying avatars
     threading.Thread(target=lambda: display_avatars(page), daemon=True).start()
 
-# Change page function
 def change_page(direction):
     global current_page
     new_page = current_page + direction
@@ -606,5 +494,7 @@ def change_page(direction):
         current_page = new_page
         threaded_display_avatars(current_page)
 
-load_current_avatar()
+# Load current avatar
+fetch_current_avatar()
+
 root.mainloop()

@@ -1,8 +1,14 @@
 # python prismic
 
+-NEW DATABASE SYSTEM 
+
+-NEW DATABASE UI (WORK IN PROGRESS)
+
+-NEW LOGIN SYSTEM 
+
 -search avatar Name/description
 
--search avatar Author
+-search avatar Author 
 
 -Select avatar (Equip avatar)
 
@@ -16,23 +22,7 @@
 
 -loading bar (broken because of the threading)
 
--show curantly equiped avatar image and name
+-show curently equiped avatar image and name 
 
 
 ![alt text](image.png)
- 
-how to find your authcookie install this extension :
-
-https://chromewebstore.google.com/detail/editthiscookie-v3/ojfebgpkimhlhcblbalbfjblapadhbol/reviews
-
-
- Go on the website [Vrchat home](https://vrchat.com/home)
-
-![alt text](image-3.png)
-
-![alt text](image-4.png)
-
-
-how to find you user id:
-
-![alt text](image-1.png)
